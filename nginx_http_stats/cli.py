@@ -48,30 +48,57 @@ def main():
     # Update log level from config.
     logger.setLevel(config.get("log_level", logging.INFO))
 
-    # A queue for passing lines from tail to the counter.
-    event_queue = queue.Queue(1_000)
+    if "sources" not in config or len(config["sources"]) < 1:
+        raise RuntimeError("no sources defined in config")
 
-    # A counter for status codes.
-    status_counter = collections.Counter()
-
-    # Thread: tail
+    # Keep track of all threads and log input queues.
     threads = []
-    threads.append(
-        threading.Thread(
-            target=tail.tail_with_retry,
-            args=(config.get("access_log_path"), event_queue),
-        )
-    )
+    log_input_queues = []
 
-    # Thread: counter
-    threads.append(
-        threading.Thread(target=counter.run, args=(event_queue, status_counter))
-    )
+    # The server zones structure from the Nginx API.
+    server_zones = {}
+
+    for source in config["sources"]:
+        if "access_log_path" not in source:
+            logger.warning("source is missing field 'access_log_path'", extra={"source": source})
+            continue
+
+        if "server_zone" not in source:
+            logger.warning("source is missing field 'server_zone'", extra={"source": source})
+            continue
+
+        # A per-zone queue for passing lines from tail to the counter.
+        log_input_queue = queue.Queue(1_000)
+        log_input_queues.append(log_input_queue)
+
+        # A per-zone structure with a nested counter for status code groups like
+        # "2xx" and actual status codes. This is from the Nginx API.
+        server_zone = {
+            "responses": collections.Counter({"codes": collections.Counter()}),
+        }
+        server_zones[source["server_zone"]] = server_zone
+
+        # Thread: tail
+        threads.append(
+            threading.Thread(
+                target=tail.tail_with_retry,
+                args=(source["access_log_path"], log_input_queue),
+            )
+        )
+
+        # Thread: counter
+        threads.append(
+            threading.Thread(target=counter.run, args=(log_input_queue, server_zone))
+        )
+
+    if len(threads) == 0:
+        raise RuntimeError("no sources could be configured")
+
 
     # Thread: web server
     threads.append(
         threading.Thread(
-            target=server.run_server, args=(config.get("server", {}), status_counter)
+            target=server.run_server, args=(config.get("server", {}), server_zones)
         )
     )
 
@@ -82,7 +109,8 @@ def main():
         # Wait for all threads to complete.
         [t.join() for t in threads]
     except KeyboardInterrupt:
-        event_queue.put(None)
+        for q in log_input_queues:
+            q.put(None)
         [t.join(0.2) for t in threads]
         raise RuntimeError("keyboard interrupt")
 

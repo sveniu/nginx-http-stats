@@ -4,7 +4,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def run(event_queue, status_counter):
+def run(event_queue, server_zone):
     """
     https://demo.nginx.com/swagger-ui/
     """
@@ -25,13 +25,12 @@ def run(event_queue, status_counter):
             status_code = str(status_code)
 
         # Update the per-status counters.
-        status_counter[status_code] += 1
+        server_zone["responses"]["codes"][status_code] += 1
 
         # Update the "2xx"-style group counters.
-        status_code_group = f"{int(status_code) // 100}xx"
-        status_counter[status_code_group] += 1
+        server_zone["responses"][f"{int(status_code) // 100}xx"] += 1
 
-        logger.debug("counter updated", extra={"counter": status_counter})
+        logger.debug("server_zone counters updated", extra={"server_zone": server_zone})
 
 # {
 #   "site1": {

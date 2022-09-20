@@ -5,4 +5,9 @@ server:
   bind_addr: 127.0.0.1
   bind_port: 8011
 
-access_log_path: ./nginx.log
+sources:
+  - access_log_path: ./nginx.log
+    server_zone: server1
+
+  - access_log_path: ./nginx2.log
+    server_zone: server2
