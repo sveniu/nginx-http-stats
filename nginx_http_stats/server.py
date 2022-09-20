@@ -1,5 +1,6 @@
 import json
 import logging
+import threading
 from functools import partial
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
@@ -28,16 +29,15 @@ class NginxHTTPStatsHandler(BaseHTTPRequestHandler):
         self.wfile.write(payload)
 
 
-def run_server(config, server_zones):
+def run_server(config, server_zones, event_shutdown):
     server_address = config.get("bind_addr", "127.0.0.1"), config.get("bind_port", 8080)
     request_handler = partial(NginxHTTPStatsHandler, server_zones)
     server = HTTPServer(server_address, request_handler)
 
-    logger.debug("starting server", extra={"server_address": server_address})
-    try:
-        # FIXME handle shutdown and call server.shutdown()
-        server.serve_forever()
-    except KeyboardInterrupt:
-        pass
+    logger.debug("starting server thread", extra={"server_address": server_address})
+    threading.Thread(target=server.serve_forever).start()
+
+    event_shutdown.wait()
+    server.shutdown()
     server.server_close()
-    logger.error("server stopped")
+    logger.info("server stopped")

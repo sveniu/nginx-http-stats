@@ -92,16 +92,20 @@ def main():
 
         # Thread: counter
         threads.append(
-            threading.Thread(target=counter.run, args=(log_input_queue, server_zone))
+            threading.Thread(
+                target=counter.run_counter, args=(log_input_queue, server_zone)
+            )
         )
 
     if len(threads) == 0:
         raise RuntimeError("no sources could be configured")
 
     # Thread: web server
+    event_shutdown = threading.Event()
     threads.append(
         threading.Thread(
-            target=server.run_server, args=(config.get("server", {}), server_zones)
+            target=server.run_server,
+            args=(config.get("server", {}), server_zones, event_shutdown),
         )
     )
 
@@ -112,6 +116,7 @@ def main():
         # Wait for all threads to complete.
         [t.join() for t in threads]
     except KeyboardInterrupt:
+        event_shutdown.set()
         for q in log_input_queues:
             q.put(None)
         [t.join(0.2) for t in threads]

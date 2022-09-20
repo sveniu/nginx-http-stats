@@ -4,7 +4,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def run(log_input_queue, server_zone):
+def run_counter(log_input_queue, server_zone):
     """
     https://demo.nginx.com/swagger-ui/
     """
