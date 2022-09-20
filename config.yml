@@ -1,0 +1,8 @@
+---
+log_level: DEBUG
+
+server:
+  bind_addr: 127.0.0.1
+  bind_port: 8011
+
+access_log_path: ./nginx.log
