@@ -47,16 +47,19 @@ def tail(fn, qstdout, qstderr):
     # FIXME Close the queues?
     return r
 
+
 def qstdout_handler(qin, qout):
     for line in iter(qin.get, None):
         s = line.decode("utf-8").strip()
         qout.put(s)
         logger.debug("read from stdout and enqueued", extra={"stdout": s})
 
+
 def qstderr_handler(q):
     for line in iter(q.get, None):
         s = line.decode("utf-8").strip()
         logger.info("read from stderr", extra={"stderr": s})
+
 
 def tail_with_retry(fn, event_queue):
     """

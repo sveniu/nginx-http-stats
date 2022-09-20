@@ -32,6 +32,7 @@ def run(event_queue, server_zone):
 
         logger.debug("server_zone counters updated", extra={"server_zone": server_zone})
 
+
 # {
 #   "site1": {
 #     "processing": 2,

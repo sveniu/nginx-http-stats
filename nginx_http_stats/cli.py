@@ -60,11 +60,15 @@ def main():
 
     for source in config["sources"]:
         if "access_log_path" not in source:
-            logger.warning("source is missing field 'access_log_path'", extra={"source": source})
+            logger.warning(
+                "source is missing field 'access_log_path'", extra={"source": source}
+            )
             continue
 
         if "server_zone" not in source:
-            logger.warning("source is missing field 'server_zone'", extra={"source": source})
+            logger.warning(
+                "source is missing field 'server_zone'", extra={"source": source}
+            )
             continue
 
         # A per-zone queue for passing lines from tail to the counter.
@@ -93,7 +97,6 @@ def main():
 
     if len(threads) == 0:
         raise RuntimeError("no sources could be configured")
-
 
     # Thread: web server
     threads.append(
