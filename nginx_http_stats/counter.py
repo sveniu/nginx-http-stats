@@ -4,12 +4,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def run(event_queue, server_zone):
+def run(log_input_queue, server_zone):
     """
     https://demo.nginx.com/swagger-ui/
     """
 
-    for line in iter(event_queue.get, None):
+    for line in iter(log_input_queue.get, None):
         logger.debug("counter got event", extra={"event": line})
         try:
             data = json.loads(line)

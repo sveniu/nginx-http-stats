@@ -61,7 +61,7 @@ def qstderr_handler(q):
         logger.info("read from stderr", extra={"stderr": s})
 
 
-def tail_with_retry(fn, event_queue):
+def tail_with_retry(fn, log_input_queue):
     """
     Tail the specified file using tail(1). Write stdout lines to a queue. Retry
     on failure.
@@ -71,7 +71,7 @@ def tail_with_retry(fn, event_queue):
         qstderr = queue.Queue(1000)
 
         threads = [
-            threading.Thread(target=qstdout_handler, args=(qstdout, event_queue)),
+            threading.Thread(target=qstdout_handler, args=(qstdout, log_input_queue)),
             threading.Thread(target=qstderr_handler, args=(qstderr,)),
         ]
         [t.start() for t in threads]
