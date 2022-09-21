@@ -62,3 +62,16 @@ troubleshooting.
 `server.bind_addr` (default: 127.0.0.1): IP address to bind to
 
 `server.bind_port` (default: 8011): Port to bind to
+
+## Datadog integration
+
+```yaml
+init_config: null
+
+instances:
+  - nginx_status_url: http://127.0.0.1:8011
+    use_plus_api: true                  # default false
+    use_plus_api_stream: false          # default true
+    plus_api_version: 7                 # default 2
+    only_query_enabled_endpoints: true  # default false
+```
