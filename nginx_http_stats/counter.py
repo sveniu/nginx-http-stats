@@ -1,36 +1,60 @@
+import collections
 import json
 import logging
+
+from . import types
 
 logger = logging.getLogger(__name__)
 
 
-def run_counter(log_input_queue, server_zone):
+def run_counter(server_zone_event_queue, server_zone):
     """
     https://demo.nginx.com/swagger-ui/
     """
 
-    for line in iter(log_input_queue.get, None):
-        logger.debug("counter got event", extra={"event": line})
-        try:
-            data = json.loads(line)
-        except json.JSONDecodeError as e:
-            logger.warning("json decode error", extra={"error": e, "input": line})
+    for ev in iter(server_zone_event_queue.get, None):
+        logger.debug("counter got event", extra={"event": ev})
 
-        if "status" not in data:
-            logger.warning("required field 'status' not found", extra={"input": data})
+        if ev["type"] == types.EventType.LOG_INPUT:
+            try:
+                data = json.loads(ev["payload"])
+            except json.JSONDecodeError as e:
+                logger.warning("json decode error", extra={"error": e, "input": ev})
 
-        status_code = data["status"]
-        if isinstance(status_code, int):
-            # All JSON keys are strings.
-            status_code = str(status_code)
+            if "status" not in data:
+                logger.warning(
+                    "required field 'status' not found", extra={"input": data}
+                )
 
-        # Update the per-status counters.
-        server_zone["responses"]["codes"][status_code] += 1
+            status_code = data["status"]
+            if isinstance(status_code, int):
+                # All JSON keys are strings.
+                status_code = str(status_code)
 
-        # Update the "2xx"-style group counters.
-        server_zone["responses"][f"{int(status_code) // 100}xx"] += 1
+            # Update the per-status counters.
+            server_zone["responses"]["codes"][status_code] += 1
 
-        logger.debug("server_zone counters updated", extra={"server_zone": server_zone})
+            # Update the "2xx"-style group counters.
+            server_zone["responses"][f"{int(status_code) // 100}xx"] += 1
+
+            logger.debug(
+                "server_zone counters updated", extra={"server_zone": server_zone}
+            )
+
+        elif ev["type"] == types.EventType.ZERO_COUNTERS:
+            logger.debug("resetting all counters to zero")
+
+            for key, val in server_zone["responses"].items():
+                if key == "codes":
+                    continue
+
+                server_zone["responses"][key] = 0
+
+            for key, val in server_zone["responses"]["codes"].items():
+                if key == "codes":
+                    continue
+
+                server_zone["responses"]["codes"][key] = 0
 
 
 # {

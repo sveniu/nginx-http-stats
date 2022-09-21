@@ -51,9 +51,11 @@ def main():
     if "sources" not in config or len(config["sources"]) < 1:
         raise RuntimeError("no sources defined in config")
 
-    # Keep track of all threads and log input queues.
+    # Keep track of all threads and event queues. The event queues are used both
+    # for passing lines from the tail threads, and for signalling zeroing of
+    # counters after they've been consumed.
     threads = []
-    log_input_queues = []
+    server_zone_event_queues = []
 
     # Also track source attributes to avoid duplicates.
     access_log_paths = []
@@ -78,8 +80,8 @@ def main():
             continue
 
         # A per-zone queue for passing lines from tail to the counter.
-        log_input_queue = queue.Queue(1_000)
-        log_input_queues.append(log_input_queue)
+        server_zone_event_queue = queue.Queue(1_000)
+        server_zone_event_queues.append(server_zone_event_queue)
 
         # A per-zone structure with a nested counter for status code groups like
         # "2xx" and actual status codes. This is from the Nginx API.
@@ -92,14 +94,15 @@ def main():
         threads.append(
             threading.Thread(
                 target=tail.tail_with_retry,
-                args=(access_log_path, log_input_queue),
+                args=(access_log_path, server_zone_event_queue),
             )
         )
 
         # Thread: counter
         threads.append(
             threading.Thread(
-                target=counter.run_counter, args=(log_input_queue, server_zone)
+                target=counter.run_counter,
+                args=(server_zone_event_queue, server_zone),
             )
         )
 
@@ -111,7 +114,12 @@ def main():
     threads.append(
         threading.Thread(
             target=server.run_server,
-            args=(config.get("server", {}), server_zones, event_shutdown),
+            args=(
+                config.get("server", {}),
+                server_zones,
+                server_zone_event_queues,
+                event_shutdown,
+            ),
         )
     )
 
@@ -123,7 +131,7 @@ def main():
         [t.join() for t in threads]
     except KeyboardInterrupt:
         event_shutdown.set()
-        for q in log_input_queues:
+        for q in server_zone_event_queues:
             q.put(None)
         [t.join(0.2) for t in threads]
         raise RuntimeError("keyboard interrupt")

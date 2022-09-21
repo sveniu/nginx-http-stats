@@ -6,6 +6,8 @@ import threading
 import time
 from enum import Enum
 
+from . import types
+
 logger = logging.getLogger(__name__)
 
 
@@ -51,7 +53,12 @@ def tail(fn, qstdout, qstderr):
 def qstdout_handler(qin, qout):
     for line in iter(qin.get, None):
         s = line.decode("utf-8").strip()
-        qout.put(s)
+        qout.put(
+            {
+                "type": types.EventType.LOG_INPUT,
+                "payload": s,
+            }
+        )
         logger.debug("read from stdout and enqueued", extra={"stdout": s})
 
 
@@ -61,7 +68,7 @@ def qstderr_handler(q):
         logger.info("read from stderr", extra={"stderr": s})
 
 
-def tail_with_retry(fn, log_input_queue):
+def tail_with_retry(fn, server_zone_event_queue):
     """
     Tail the specified file using tail(1). Write stdout lines to a queue. Retry
     on failure.
@@ -71,7 +78,9 @@ def tail_with_retry(fn, log_input_queue):
         qstderr = queue.Queue(1000)
 
         threads = [
-            threading.Thread(target=qstdout_handler, args=(qstdout, log_input_queue)),
+            threading.Thread(
+                target=qstdout_handler, args=(qstdout, server_zone_event_queue)
+            ),
             threading.Thread(target=qstderr_handler, args=(qstderr,)),
         ]
         [t.start() for t in threads]

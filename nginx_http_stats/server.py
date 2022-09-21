@@ -5,15 +5,18 @@ import threading
 from functools import partial
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+from . import types
+
 logger = logging.getLogger(__name__)
 
 
 class NginxHTTPStatsHandler(BaseHTTPRequestHandler):
-    def __init__(self, server_zones, *args, **kwargs):
+    def __init__(self, server_zones, zero_counters_queues, *args, **kwargs):
         """
         https://stackoverflow.com/a/52046062
         """
         self.server_zones = server_zones
+        self.server_zone_event_queues = zero_counters_queues
         # BaseHTTPRequestHandler calls do_GET **inside** __init__ !!!
         # So we have to call super().__init__ after setting attributes.
         super().__init__(*args, **kwargs)
@@ -45,6 +48,16 @@ class NginxHTTPStatsHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
+        # Reset counters on read, to emulate the Nginx API.
+        logger.debug("resetting counters")
+        for q in self.server_zone_event_queues:
+            logger.debug("resetting counters for queue N")
+            q.put(
+                {
+                    "type": types.EventType.ZERO_COUNTERS,
+                }
+            )
+
     def do_GET(self):
         for route, handler in {
             re.compile(r"^//?\d/?$"): self.handle_root,
@@ -62,9 +75,11 @@ class NginxHTTPStatsHandler(BaseHTTPRequestHandler):
         self.wfile.write(payload)
 
 
-def run_server(config, server_zones, event_shutdown):
+def run_server(config, server_zones, server_zone_event_queues, event_shutdown):
     server_address = config.get("bind_addr", "127.0.0.1"), config.get("bind_port", 8080)
-    request_handler = partial(NginxHTTPStatsHandler, server_zones)
+    request_handler = partial(
+        NginxHTTPStatsHandler, server_zones, server_zone_event_queues
+    )
     server = HTTPServer(server_address, request_handler)
 
     logger.debug("starting server thread", extra={"server_address": server_address})
