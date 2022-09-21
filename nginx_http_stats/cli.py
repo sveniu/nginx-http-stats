@@ -65,7 +65,8 @@ def main():
         access_log_path = source.get("access_log_path", "/var/log/nginx/access.log")
         if access_log_path in access_log_paths:
             logger.warning(
-                "skipping source with duplicate access_log_path", extra={"source": source}
+                "skipping source with duplicate access_log_path",
+                extra={"source": source},
             )
             continue
 
