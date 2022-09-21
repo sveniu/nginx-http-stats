@@ -55,19 +55,24 @@ def main():
     threads = []
     log_input_queues = []
 
+    # Also track source attributes to avoid duplicates.
+    access_log_paths = []
+
     # The server zones structure from the Nginx API.
     server_zones = {}
 
     for source in config["sources"]:
-        if "access_log_path" not in source:
+        access_log_path = source.get("access_log_path", "/var/log/nginx/access.log")
+        if access_log_path in access_log_paths:
             logger.warning(
-                "source is missing field 'access_log_path'", extra={"source": source}
+                "skipping source with duplicate access_log_path", extra={"source": source}
             )
             continue
 
-        if "server_zone" not in source:
+        server_zone_name = source.get("server_zone", "server")
+        if server_zone_name in server_zones:
             logger.warning(
-                "source is missing field 'server_zone'", extra={"source": source}
+                "skipping source with duplicate server_zone", extra={"source": source}
             )
             continue
 
@@ -80,13 +85,13 @@ def main():
         server_zone = {
             "responses": collections.Counter({"codes": collections.Counter()}),
         }
-        server_zones[source["server_zone"]] = server_zone
+        server_zones[server_zone_name] = server_zone
 
         # Thread: tail
         threads.append(
             threading.Thread(
                 target=tail.tail_with_retry,
-                args=(source["access_log_path"], log_input_queue),
+                args=(access_log_path, log_input_queue),
             )
         )
 
@@ -98,7 +103,7 @@ def main():
         )
 
     if len(threads) == 0:
-        raise RuntimeError("no sources could be configured")
+        raise RuntimeError("no valid sources were found")
 
     # Thread: web server
     event_shutdown = threading.Event()

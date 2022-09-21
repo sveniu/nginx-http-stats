@@ -1,0 +1,19 @@
+---
+# Global log level (default: INFO)
+log_level: DEBUG
+
+# API server configuration.
+server:
+  # IP address to bind to (default: 127.0.0.1)
+  bind_addr: 127.0.0.1
+
+  # Port to bind to (default: 8011)
+  bind_port: 8011
+
+# List of source files to follow (default: empty)
+sources:
+  - # Nginx access log path (default: /var/log/nginx/access.log)
+    access_log_path: /var/log/nginx/access.log
+
+    # Server zone identifier (default: server)
+    server_zone: server
