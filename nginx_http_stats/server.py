@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import threading
 from functools import partial
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -20,10 +21,42 @@ class NginxHTTPStatsHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
 
-    def do_GET(self):
+    def handle_root(self):
+        payload = json.dumps(["http"]).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def handle_http(self):
+        payload = json.dumps(["server_zones"]).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def handle_http_server_zones(self):
         payload = json.dumps(self.server_zones, sort_keys=True).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def do_GET(self):
+        for route, handler in {
+            re.compile(r"^//?\d/?$"): self.handle_root,
+            re.compile(r"^//?\d/http/?$"): self.handle_http,
+            re.compile(r"^//?\d/http/server_zones/?"): self.handle_http_server_zones,
+        }.items():
+            if route.match(self.path):
+                return handler()
+
+        payload = b"not found"
+        self.send_response(404)
+        self.send_header("Content-Type", "text/plain")
         self.send_header("Content-Length", str(len(payload)))
         self.end_headers()
         self.wfile.write(payload)
