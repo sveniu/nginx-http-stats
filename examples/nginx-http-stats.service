@@ -1,0 +1,9 @@
+[Unit]
+Description=Nginx HTTP statistics API
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/nginx-http-stats
+
+[Install]
+WantedBy=multi-user.target
